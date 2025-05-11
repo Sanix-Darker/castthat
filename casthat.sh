@@ -1,44 +1,55 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Check if required tools are installed
-command -v ffmpeg >/dev/null 2>&1 || { echo >&2 "ffmpeg is required but not installed. Aborting."; exit 1; }
-command -v slop >/dev/null 2>&1 || { echo >&2 "slop is required but not installed. Aborting."; exit 1; }
+set -Eeuo pipefail
 
-# Get screen selection from user
-echo "Select the area of your screen to stream..."
-# GEOMETRY=$(import -pause 1 -frame -silent -geometry +100+100 -crop 800x600 +repage /dev/null 2>&1 | grep "Geometry" | awk '{print $2}')
+### sanity-check prerequisites
+for cmd in ffmpeg slop; do
+  command -v "$cmd" >/dev/null || {
+    echo >&2 "❌  $cmd not found – install it first."; exit 1; }
+done
+
+### user-configurable knobs (env vars override for ffmpeg)
+PORT_RTMP=${PORT_RTMP:-1935}           # where MediaMTX listens for RTMP
+RTMP_IP="127.0.0.1"                    # If the server is not ran locally
+PATH_NAME=${PATH_NAME:-live/stream}    # RTMP/HLS/WebRTC path
+FPS=${FPS:-40}                         # capture frame rate
+BITRATE=${BITRATE:-1000k}              # CBR so Wi-Fi phones cope
+GOP=$((FPS*2))                         # 2 s key-int > segment-aligned for HLS
+PRESET=${PRESET:-veryfast}             # good CPU/quality trade-off
+CRF=${CRF:-23}
+
+### automatically pick the best H.264 encoder available
+if ffmpeg -hide_banner -encoders | grep -q h264_nvenc; then
+  VENC=h264_nvenc ; PRESET=${PRESET:-p3}
+elif ffmpeg -hide_banner -encoders | grep -q h264_vaapi; then
+  VENC=h264_vaapi
+else
+  VENC=libx264
+fi
+
+echo "> Drag to select the area you want to stream…"
 GEOMETRY=$(slop -f "%x %y %w %h") || exit 1
-
 read -r X Y W H <<< "$GEOMETRY"
 
-PORT=8889
-BITRATE="1000k"
-FRAMERATE=30
-CODEC="libx264"  # or use h264_nvenc if you have NVIDIA GPU
+# guarantee even dimensions for yuv420p
+W=$((W - W%2)); H=$((H - H%2))
 
-# Get local IP address
-IP_ADDR=$(hostname -I | awk '{print $1}')
+IP=$(hostname -I | awk '{print $1}')
 
-echo "CastThat started"
-echo "Starting stream... on ${W}x${H} Press Ctrl+C to stop."
-echo "View the stream at: http://$IP_ADDR:$PORT/live/stream/"
+echo "▶  Streaming ${W}x${H}@${FPS} → rtmp://$IP:$PORT_RTMP/$PATH_NAME"
+echo "   HLS playlist:   http://$IP:8888/$PATH_NAME/index.m3u8"
+echo "   Low-latency HLS http://$IP:8888/$PATH_NAME/llhls.m3u8"
 
-# Trap Ctrl+C to clean up
-cleanup() {
-    echo "Stopping stream..."
-    kill $FFMPEG_PID 2>/dev/null
-    exit 0
-}
-trap cleanup INT TERM
+cleanup() { echo "⏹  Stopping…"; kill "$FF" 2>/dev/null; }
+trap cleanup INT TERM EXIT
 
-# Start FFmpeg streaming
-# considering there is a running rtsp server (on port 8890)
-# docker run --rm -it --network=host bluenviron/mediamtx:latest
-ffmpeg -loglevel error \
-    -f x11grab -video_size "${W}x${H}" -framerate "$FRAMERATE" -i ":0.0+$X,$Y" \
-    -vcodec "$CODEC" -tune zerolatency -b:v "$BITRATE" \
-    -f flv "rtmp://0.0.0.0:1935/live/stream"
-
-FFMPEG_PID=$!
-# Keep script running while FFmpeg is alive
-wait $FFMPEG_PID
+ffmpeg -hide_banner -loglevel warning \
+  -thread_queue_size 512 \
+  -f x11grab            -video_size "${W}x${H}" -framerate "$FPS" -i ":0.0+$X,$Y" \
+  -vcodec "$VENC"       -preset "$PRESET"        -tune zerolatency \
+  -profile:v baseline   -level 3.1               -pix_fmt yuv420p \
+  -g "$GOP"             -keyint_min "$GOP" \
+  -b:v "$BITRATE"       -maxrate "$BITRATE"      -bufsize "$(( ${BITRATE%k}*2 ))k" \
+  -f flv "rtmp://127.0.0.1:$PORT_RTMP/$PATH_NAME" &
+FF=$!
+wait "$FF"

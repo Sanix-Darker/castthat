@@ -1,31 +1,25 @@
 ## CASTHAT
 
-A basic bash script to stream a portion of your linux screen over network.
+![screenshot](./screen.jpg)
 
-## INSTALL REQUIREMENTS
+A basic script to stream an area of your screen over network accessible via http/tcp/udb (locally or over internet).
 
-### FOR UBUNTU/DEBIAN-BASED SYSTEMS
+## REQUIREMENTS
 
-```console
-$ sudo apt-get update
-$ sudo apt-get install ffmpeg slop
-```
+- Any rtmp/rtsp server (in my case i used the docker mediamtx)
+    ```bash
+    $ docker run --rm -it --network=host bluenviron/mediamtx:latest
+    ```
+- ffmpeg
+- slop (for the select, drag to extract X, Y, W, H coordinates) for the portion of the screen that will be extract from display by ffmpeg.
 
-### FOR CENTOS/RHEL-BASED SYSTEMS
-
-```console
-$ sudo yum install epel-release
-$ sudo yum install ffmpeg slop
-```
-
-### FOR FEDORA
+## HOW TO RUN
 
 ```console
-$ sudo dnf install ffmpeg slop
-```
-
-### FOR ARCH LINUX
-
-```console
-sudo pacman -S ffmpeg slop
+$ ./casthat.sh
+> Drag to select the area you want to stream…
+Failed to detect a compositor, OpenGL hardware-accelleration disabled... (you can ignore this error)
+▶  Streaming 938x638@40 → rtmp://192.168.1.30:1935/live/stream
+   HLS playlist:   http://192.168.1.30:8888/live/stream/index.m3u8
+   Low-latency HLS http://192.168.1.30:8888/live/stream/llhls.m3u8
 ```
