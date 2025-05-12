@@ -23,3 +23,12 @@ Failed to detect a compositor, OpenGL hardware-accelleration disabled... (you ca
    HLS playlist:   http://192.168.1.30:8888/live/stream/index.m3u8
    Low-latency HLS http://192.168.1.30:8888/live/stream/llhls.m3u8
 ```
+
+## TROUBLESHOOTHING
+
+If you find yourself unable to read/get frames from the X server,
+try those commands :
+```bash
+xhost +local:  # Allow local connections to X server
+export DISPLAY=:0  # Set default display
+```
