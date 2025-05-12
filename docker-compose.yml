@@ -1,0 +1,34 @@
+services:
+  ##  the Media server (HLS/RTMP)
+  # FIXME: i may switch to something lite later on
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    #  for all ports needed to be open (:1935  :8888  :8554  :9997) …
+    network_mode: "host"
+    restart: unless-stopped # maybe it should be also on failure (not quite sure).
+
+  castthat:
+    build: ./castthat
+    container_name: castthat
+    network_mode: "host"
+    environment:
+      # To forward host X11 display
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix        # X11 socket
+      - ${HOME}/.Xauthority:/root/.Xauthority:ro  # Xauth cookie
+      # uncomment for VA-API / Intel-QuickSync
+      - /dev/dri:/dev/dri
+    # regarding an old Lenovo (on Nvidia) (like mine)
+    # uncomment the 2 lines below when using NVIDIA + nvidia-container-runtime
+    # runtime: nvidia
+    # environment: [ "NVIDIA_VISIBLE_DEVICES=all" ]
+
+    # NOTE: THIS IS EXTREMLY important, it allows slop to grab mouse focus
+    # from the host point of view
+    stdin_open: true
+    tty: true
+    restart: on-failure
+    depends_on:
+      - mediamtx
