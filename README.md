@@ -6,8 +6,9 @@ A basic script to stream an area of your screen over network accessible via http
 
 ## REQUIREMENTS
 
-- Any rtmp/rtsp server (in my case i used the docker mediamtx)
-- [ffmpeg](https://ffmpeg.org)
+- Any rtmp/rtsp server (in my case i used the docker mediamtx).
+- [ffmpeg](https://ffmpeg.org) to forward mixed media to the streaming server.
+- [pactl) to grab forward the audio sink as stream.
 - [slop](https://github.com/naelstrof/slop) (To select, drag to extract X, Y, W, H coordinates) for the portion of the screen that will be extract from display by ffmpeg.
 
 ## HOW TO RUN CASTTHAT
