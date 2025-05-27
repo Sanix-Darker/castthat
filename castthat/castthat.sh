@@ -18,6 +18,12 @@ GOP=$((FPS*2))                         # 2 s key-int > segment-aligned for HLS
 PRESET=${PRESET:-veryfast}             # good CPU/quality trade-off
 CRF=${CRF:-23}
 
+### regarding audio
+# Pulse / PipeWire: pick the monitor of the current system output
+DEFAULT_SINK=$(pactl get-default-sink)
+AUDIO_SRC=${AUDIO_SRC:-${DEFAULT_SINK}.monitor}
+AUDIO_BR=${AUDIO_BR:-160k}
+
 ### automatically pick the best H.264 encoder available
 if ffmpeg -hide_banner -encoders | grep -q h264_nvenc; then
   VENC=h264_nvenc ; PRESET=${PRESET:-p3}
@@ -45,6 +51,7 @@ trap cleanup INT TERM EXIT
 
 ffmpeg -hide_banner -loglevel warning \
   -thread_queue_size 512 \
+  -f pulse              -i "$AUDIO_SRC" \
   -f x11grab            -video_size "${W}x${H}" -framerate "$FPS" -i ":0.0+$X,$Y" \
   -vcodec "$VENC"       -preset "$PRESET"        -tune zerolatency \
   -profile:v baseline   -level 3.1               -pix_fmt yuv420p \

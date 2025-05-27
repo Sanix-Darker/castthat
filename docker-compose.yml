@@ -9,17 +9,26 @@ services:
     restart: unless-stopped # maybe it should be also on failure (not quite sure).
 
   castthat:
+    user: "${UID}:${AUDIO_GID}"
     build: ./castthat
     container_name: castthat
     network_mode: "host"
     environment:
       # To forward host X11 display
       - DISPLAY=${DISPLAY}
+      # To forward audio from the host
+      - PULSE_SERVER=unix:/tmp/pulse-native
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix        # X11 socket
+      - /tmp/.X11-unix:/tmp/.X11-unix             # X11 socket
       - ${HOME}/.Xauthority:/root/.Xauthority:ro  # Xauth cookie
       # uncomment for VA-API / Intel-QuickSync
       - /dev/dri:/dev/dri
+      # ${XDG_RUNTIME_DIR}
+      # - /run/user/1000/pulse/native:/tmp/pulse-native # for the audio socket
+    group_add:
+      - "${AUDIO_GID:-29}"
+    devices:
+      - "/dev/snd"
     # regarding an old Lenovo (on Nvidia) (like mine)
     # uncomment the 2 lines below when using NVIDIA + nvidia-container-runtime
     # runtime: nvidia
